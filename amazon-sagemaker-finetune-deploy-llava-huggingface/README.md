@@ -20,3 +20,19 @@ See [CONTRIBUTING](CONTRIBUTING.md#security-issue-notifications) for more inform
 
 This library is licensed under the MIT-0 License. See the LICENSE file.
 
+# Download data:
+
+```bash
+huggingface-cli download --repo-type dataset lmms-lab/LLaVA-Video-178K --include "0_30_s_activitynetqa*" --local-dir amazon-sagemaker-finetune-deploy-llava-huggingface/data/ 
+```
+
+# Build and push docker image
+
+```bash
+bash build_and push.sh
+```
+
+Then follow the steps in llava-video-full-finetuning-sagemaker.ipynb
+
+
+

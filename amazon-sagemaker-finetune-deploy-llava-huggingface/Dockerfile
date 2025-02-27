@@ -8,4 +8,4 @@ ENV NVIDIA_VISIBLE_DEVICES="all"
 RUN pip install --upgrade pip
 COPY requirements.txt requirements.txt
 RUN pip install -r requirements.txt
-RUN pip install flash-attn==2.3.3 --no-build-isolation --no-cache-dir
+RUN MAX_JOBS=4 pip install flash-attn==2.3.3 --no-build-isolation --no-cache-dir
