@@ -1,5 +1,5 @@
 # The name of our algorithm
-docker_name=llava-next
+docker_name=llava-video
 
 # cd container
 
