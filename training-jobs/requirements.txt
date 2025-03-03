@@ -24,7 +24,7 @@ timm
 ninja
 wandb
 sagemaker-pytorch-training
-pyav
+av
 open_clip_torch
 datasets
 tyro

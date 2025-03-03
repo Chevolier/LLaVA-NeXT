@@ -235,3 +235,38 @@ If you find it useful for your research and applications, please cite related pa
 For future project ideas, please check out:
 - [SEEM: Segment Everything Everywhere All at Once](https://github.com/UX-Decoder/Segment-Everything-Everywhere-All-At-Once)
 - [Grounded-Segment-Anything](https://github.com/IDEA-Research/Grounded-Segment-Anything) to detect, segment, and generate anything by marrying [Grounding DINO](https://github.com/IDEA-Research/GroundingDINO) and [Segment-Anything](https://github.com/facebookresearch/segment-anything).
+
+
+# Training
+
+## SageMaker training jobs
+
+Go to training-jobs and follow the steps there.
+
+## EC2 local training
+
+```bash
+bash scripts/video/train/SO400M_Qwen2_7B.sh
+```
+
+# Inference
+
+## Deploy using SageMaker endpoint
+This uses vllm
+
+
+## Deploy locally using SGLang
+
+```bash
+pip install --upgrade pip
+pip install transformers==4.47.0
+pip install uv
+uv pip install "sglang[all]>=0.4.3.post2" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
+pip install openai
+pip install orjson
+pip install uvloop
+
+python local-deploy/sglang_server.py
+```
+
+
