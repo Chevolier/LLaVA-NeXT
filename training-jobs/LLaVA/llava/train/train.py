@@ -1060,6 +1060,8 @@ class LazySupervisedDataset(Dataset):
     def process_image(self, image_file, overwrite_image_aspect_ratio=None):
         image_folder = self.data_args.image_folder
         processor = self.data_args.image_processor
+        print(f"self.data_args: {self.data_args}")
+        print(f"image_processor: {processor}")
         # print(f"\n\nInspecting the image path, folder = {image_folder}, image={image_file}\n\n")
         try:
             image = Image.open(os.path.join(image_folder, image_file)).convert("RGB")

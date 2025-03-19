@@ -37,9 +37,9 @@ ports=($(echo $METIS_WORKER_0_PORT | tr ',' ' '))
 port=${ports[0]}
 port_in_cmd="$(echo "${METIS_WORKER_0_PORT:-2222}" | awk -F',' '{print $1}')"
 
-ARNOLD_WORKER_NUM=1
+ARNOLD_WORKER_NUM=8
 ARNOLD_ID=0
-ARNOLD_WORKER_GPU=8
+ARNOLD_WORKER_GPU=1
 METIS_WORKER_0_HOST='localhost'
 port_in_cmd=12345
 
@@ -81,7 +81,7 @@ echo "BASE_RUN_NAME: ${BASE_RUN_NAME}"
 # Stage 2
 PROMPT_VERSION="qwen_1_5"
 MID_RUN_NAME="llavanext-${VISION_MODEL_VERSION_CLEAN}-${LLM_VERSION_CLEAN}-ov_to_video_am9_aug17"
-PREV_STAGE_CHECKPOINT="lmms-lab/LLaVA-Video-7B-Qwen2"
+PREV_STAGE_CHECKPOINT="/home/ec2-user/SageMaker/efs/Models/LLaVA-Video-7B-Qwen2" # "lmms-lab/LLaVA-Video-7B-Qwen2"
 echo "PREV_STAGE_CHECKPOINT: ${PREV_STAGE_CHECKPOINT}"
 echo "MID_RUN_NAME: ${MID_RUN_NAME}"
 
@@ -101,9 +101,9 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${ARNOLD_WORKER_GPU}" --nno
     --deepspeed scripts/zero3.json \
     --model_name_or_path $PREV_STAGE_CHECKPOINT \
     --version $PROMPT_VERSION \
-    --data_path /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/scripts/video/train/exp.yaml \
-    --image_folder /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/data/0_30_s_activitynetqa \
-    --video_folder /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/data/0_30_s_activitynetqa \
+    --data_path /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/data/hualai_sft_data/train_formatted.json \
+    --image_folder /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/data/hualai_sft_data \
+    --video_folder /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/data/hualai_sft_data \
     --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model" \
     --mm_vision_tower_lr=2e-6 \
     --vision_tower ${VISION_MODEL_VERSION} \
@@ -118,7 +118,7 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${ARNOLD_WORKER_GPU}" --nno
     --bf16 True \
     --run_name $MID_RUN_NAME \
     --output_dir /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/checkpoints/$MID_RUN_NAME \
-    --num_train_epochs 1 \
+    --num_train_epochs 20 \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 4 \
     --gradient_accumulation_steps 2 \
@@ -139,7 +139,7 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${ARNOLD_WORKER_GPU}" --nno
     --torch_compile True \
     --torch_compile_backend "inductor" \
     --dataloader_drop_last True \
-    --frames_upbound 64 \
+    --frames_upbound 32 \
     --mm_newline_position grid \
     --add_time_instruction True \
     --force_sample True \

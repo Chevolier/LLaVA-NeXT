@@ -28,7 +28,7 @@ def process_video_with_decord(video_file, data_args):
     video_time = total_frame_num / vr.get_avg_fps()
     avg_fps = round(vr.get_avg_fps() / data_args.video_fps)
     frame_idx = [i for i in range(0, total_frame_num, avg_fps)]
-    frame_time = [i/avg_fps for i in frame_idx]
+    frame_time = [i/avg_fps for i in frame_idx] # comment zc: shouldn't this be i/vr.get_avg_fps()?
 
     
     if data_args.frames_upbound > 0:

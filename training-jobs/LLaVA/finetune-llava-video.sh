@@ -43,7 +43,7 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${GPUS_PER_NODE}" --nnodes=
     --deepspeed scripts/zero3.json \
     --model_name_or_path $PREV_STAGE_CHECKPOINT \
     --version $PROMPT_VERSION \
-    --data_path /opt/ml/input/data/training/0_30_s_activitynetqa_oe_qa_processed.json \
+    --data_path /opt/ml/input/data/training/train_formatted.json \
     --image_folder /opt/ml/input/data/training \
     --video_folder /opt/ml/input/data/training \
     --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model" \
@@ -60,13 +60,13 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${GPUS_PER_NODE}" --nnodes=
     --bf16 True \
     --run_name $MID_RUN_NAME \
     --output_dir /opt/ml/checkpoints/${job_id} \
-    --num_train_epochs 1 \
+    --num_train_epochs 20 \
     --per_device_train_batch_size 1 \
-    --per_device_eval_batch_size 4 \
+    --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 2 \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
-    --save_steps 500 \
+    --save_steps 50 \
     --save_total_limit 1 \
     --learning_rate 1e-5 \
     --weight_decay 0. \
@@ -74,14 +74,14 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${GPUS_PER_NODE}" --nnodes=
     --lr_scheduler_type "cosine" \
     --logging_steps 1 \
     --tf32 True \
-    --model_max_length 2048 \
+    --model_max_length 22768 \
     --gradient_checkpointing True \
     --dataloader_num_workers 2 \
     --lazy_preprocess True \
     --torch_compile True \
     --torch_compile_backend "inductor" \
     --dataloader_drop_last True \
-    --frames_upbound 16 \
+    --frames_upbound 32 \
     --mm_newline_position grid \
     --add_time_instruction True \
     --force_sample True \
