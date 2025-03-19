@@ -60,14 +60,14 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${GPUS_PER_NODE}" --nnodes=
     --bf16 True \
     --run_name $MID_RUN_NAME \
     --output_dir /opt/ml/checkpoints/${job_id} \
-    --num_train_epochs 20 \
+    --num_train_epochs 50 \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 2 \
     --evaluation_strategy "no" \
     --save_strategy "steps" \
-    --save_steps 50 \
-    --save_total_limit 1 \
+    --save_steps 25 \
+    --save_total_limit 10 \
     --learning_rate 1e-5 \
     --weight_decay 0. \
     --warmup_ratio 0.03 \
