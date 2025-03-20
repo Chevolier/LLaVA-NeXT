@@ -38,16 +38,17 @@ echo "MID_RUN_NAME: ${MID_RUN_NAME}"
 export AV_LOG_LEVEL=error  # Suppress FFmpeg info/warning messages
 export PYTHONWARNINGS="ignore::UserWarning"  # Filter Python warnings
 
+# --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model"
+
 ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${GPUS_PER_NODE}" --nnodes="${NNODES}" --node_rank="${NODE_RANK}" --master_addr="${MASTER_ADDR}" --master_port="${MASTER_PORT}" \
     llava/train/train_mem.py \
+    --lora_enable True --lora_r 128 --lora_alpha 256 --mm_projector_lr 2e-5 \
     --deepspeed scripts/zero3.json \
     --model_name_or_path $PREV_STAGE_CHECKPOINT \
     --version $PROMPT_VERSION \
     --data_path /opt/ml/input/data/training/train_formatted.json \
     --image_folder /opt/ml/input/data/training \
     --video_folder /opt/ml/input/data/training \
-    --mm_tunable_parts="mm_vision_tower,mm_mlp_adapter,mm_language_model" \
-    --mm_vision_tower_lr=2e-6 \
     --vision_tower ${VISION_MODEL_VERSION} \
     --mm_projector_type mlp2x_gelu \
     --mm_vision_select_layer -2 \
@@ -60,7 +61,7 @@ ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${GPUS_PER_NODE}" --nnodes=
     --bf16 True \
     --run_name $MID_RUN_NAME \
     --output_dir /opt/ml/checkpoints/${job_id} \
-    --num_train_epochs 50 \
+    --num_train_epochs 20 \
     --per_device_train_batch_size 1 \
     --per_device_eval_batch_size 1 \
     --gradient_accumulation_steps 2 \
