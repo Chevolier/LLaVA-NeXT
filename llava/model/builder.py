@@ -77,6 +77,16 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                 lora_cfg_pretrained = LlavaGemmaConfig.from_pretrained(model_path)
                 tokenizer = AutoTokenizer.from_pretrained(model_base, use_fast=False)
                 model = LlavaGemmaForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, config=lora_cfg_pretrained, attn_implementation=attn_implementation, **kwargs)
+            elif "qwen" in model_name.lower():
+                from llava.model.language_model.llava_qwen import LlavaQwenConfig
+                if overwrite_config is not None:
+                    llava_cfg = LlavaQwenConfig.from_pretrained(model_path)
+                    rank0_print(f"Overwriting config with {overwrite_config}")
+                    for k, v in overwrite_config.items():
+                        setattr(llava_cfg, k, v)
+                    model = LlavaQwenForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, attn_implementation=attn_implementation, config=llava_cfg, **kwargs)
+                else:
+                    model = LlavaQwenForCausalLM.from_pretrained(model_base, low_cpu_mem_usage=True, attn_implementation=attn_implementation, **kwargs)
             else:
                 from llava.model.language_model.llava_llama import LlavaConfig
 
@@ -89,22 +99,22 @@ def load_pretrained_model(model_path, model_base, model_name, load_8bit=False, l
                 model.lm_head.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
                 model.model.embed_tokens.weight = torch.nn.Parameter(torch.empty(token_num, tokem_dim, device=model.device, dtype=model.dtype))
 
-            rank0_print("Loading additional LLaVA weights...")
-            if os.path.exists(os.path.join(model_path, "non_lora_trainables.bin")):
-                non_lora_trainables = torch.load(os.path.join(model_path, "non_lora_trainables.bin"), map_location="cpu")
-            else:
-                # this is probably from HF Hub
-                from huggingface_hub import hf_hub_download
+            # rank0_print("Loading additional LLaVA weights...")
+            # if os.path.exists(os.path.join(model_path, "non_lora_trainables.bin")):
+            #     non_lora_trainables = torch.load(os.path.join(model_path, "non_lora_trainables.bin"), map_location="cpu")
+            # else:
+            #     # this is probably from HF Hub
+            #     from huggingface_hub import hf_hub_download
 
-                def load_from_hf(repo_id, filename, subfolder=None):
-                    cache_file = hf_hub_download(repo_id=repo_id, filename=filename, subfolder=subfolder)
-                    return torch.load(cache_file, map_location="cpu")
+            #     def load_from_hf(repo_id, filename, subfolder=None):
+            #         cache_file = hf_hub_download(repo_id=repo_id, filename=filename, subfolder=subfolder)
+            #         return torch.load(cache_file, map_location="cpu")
 
-                non_lora_trainables = load_from_hf(model_path, "non_lora_trainables.bin")
-            non_lora_trainables = {(k[11:] if k.startswith("base_model.") else k): v for k, v in non_lora_trainables.items()}
-            if any(k.startswith("model.model.") for k in non_lora_trainables):
-                non_lora_trainables = {(k[6:] if k.startswith("model.") else k): v for k, v in non_lora_trainables.items()}
-            model.load_state_dict(non_lora_trainables, strict=False)
+            #     non_lora_trainables = load_from_hf(model_path, "non_lora_trainables.bin")
+            # non_lora_trainables = {(k[11:] if k.startswith("base_model.") else k): v for k, v in non_lora_trainables.items()}
+            # if any(k.startswith("model.model.") for k in non_lora_trainables):
+            #     non_lora_trainables = {(k[6:] if k.startswith("model.") else k): v for k, v in non_lora_trainables.items()}
+            # model.load_state_dict(non_lora_trainables, strict=False)
 
             from peft import PeftModel
 
