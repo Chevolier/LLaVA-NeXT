@@ -49,8 +49,20 @@ uv pip install "sglang[all]>=0.4.4.post1" --find-links https://flashinfer.ai/whl
 pip install transformers==4.48.3
 ```
 
+Need to copy config.json and preprocess_config.json to the trained folder
+
+Run sglang 
+```bash
+
+python3 -m sglang.launch_server --model-path /home/ec2-user/SageMaker/efs/Projects/LLaVA-NeXT/checkpoints/llava-video-task-full-2025-03-19-05-52-43/checkpoint-100 \
+    --chat-template=chatml-llava --chunked-prefill-size 2048 --max-running-requests 50 --mem-fraction-static 0.85 --port 30008 
+```
+
 ## Qwen2.5-VL-7B
 ```bash
-python local-deploy/sglang_server.py
+# python local-deploy/sglang_server.py
+
+python3 -m sglang.launch_server --model-path /home/ec2-user/SageMaker/efs/Models/Qwen2.5-VL-7B-Instruct \
+    --chat-template=qwen2-vl --chunked-prefill-size 1024 --max-running-requests 50 --mem-fraction-static 0.6 --port 30008
 ```
 
