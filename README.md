@@ -87,7 +87,8 @@ Need to further copy config.json and preprocess_config.json from downloaded pret
 Run sglang 
 ```bash
 python3 -m sglang.launch_server --model-path your_path_to_checkpoint/checkpoint-100 \
-    --chat-template=chatml-llava --chunked-prefill-size 2048 --max-running-requests 50 --mem-fraction-static 0.85 --port 30008 
+    --chat-template=chatml-llava --chunked-prefill-size 2048 --max-running-requests 50 \
+    --mem-fraction-static 0.85 --port 30008 
 ```
 To test the started service, run the part in evaluate.ipynb.
 
