@@ -1,36 +1,5 @@
 #!/bin/bash
 
-# NAS_REGION="vl-research"
-# # set up wandb
-# export WANDB_API_KEY=a651c244635bc6f913ab654af3f0eebaecdc9381
-# export WANDB_ENTITY=llava-vl
-# export WANDB_PROJECT=llava-next
-# export WANDB_MODE=online
-# export PYTHONWARNINGS="ignore"
-
-# export ACCELERATE_DEBUG_MODE="1"
-# export HF_HOME="/mnt/bn/${NAS_REGION}/workspace/.cache/huggingface"
-# export HF_TOKEN="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"
-# export HF_HUB_ENABLE_HF_TRANSFER="1"
-
-# DIR="/mnt/bn/vl-research/workspace/yhzhang/LLaVA-NeXT/llava.egg-info/"
-# # Delete dir if exists
-# if [ -d "$DIR" ]; then
-#   rm -rf $DIR
-# fi
-
-
-############### Prepare Envs #################
-# cd /mnt/bn/vl-research/workspace/yhzhang/LLaVA-NeXT/
-# python3 -m pip install --upgrade pip
-# python3 -m pip install -e ".[train]"
-
-# python3 -m pip install ninja
-# python3 -m pip install flash-attn --no-build-isolation
-# alias python=python3
-############### Show Envs ####################
-
-
 nvidia-smi
 # 取 worker0 第一个 port
 ports=($(echo $METIS_WORKER_0_PORT | tr ',' ' '))
@@ -42,7 +11,6 @@ ARNOLD_ID=0
 ARNOLD_WORKER_GPU=1
 METIS_WORKER_0_HOST='localhost'
 port_in_cmd=12345
-
 
 echo "total workers: ${ARNOLD_WORKER_NUM}"
 echo "cur worker id: ${ARNOLD_ID}"
@@ -81,21 +49,13 @@ echo "BASE_RUN_NAME: ${BASE_RUN_NAME}"
 # Stage 2
 PROMPT_VERSION="qwen_1_5"
 MID_RUN_NAME="llavanext-${VISION_MODEL_VERSION_CLEAN}-${LLM_VERSION_CLEAN}-ov_to_video_am9_aug17"
-PREV_STAGE_CHECKPOINT="/home/ec2-user/SageMaker/efs/Models/LLaVA-Video-7B-Qwen2" # "lmms-lab/LLaVA-Video-7B-Qwen2"
+PREV_STAGE_CHECKPOINT="/home/ec2-user/SageMaker/efs/Models/LLaVA-Video-7B-Qwen2" # change this to your pretrained model folder
 echo "PREV_STAGE_CHECKPOINT: ${PREV_STAGE_CHECKPOINT}"
 echo "MID_RUN_NAME: ${MID_RUN_NAME}"
 
 export AV_LOG_LEVEL=error  # Suppress FFmpeg info/warning messages
 export PYTHONWARNINGS="ignore::UserWarning"  # Filter Python warnings
 
-
-# deepspeed --master_port 30000 llava/train/train_mem.py \
-# ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${ARNOLD_WORKER_GPU}" --nnodes="${ARNOLD_WORKER_NUM}" --node_rank="${ARNOLD_ID}" --master_addr="${METIS_WORKER_0_HOST}" --master_port="${port_in_cmd}" \
-# deepspeed --master_port 30000 \
-# # "mm_vision_tower,mm_mlp_adapter,mm_language_model" \
-    # --report_to wandb \
-
-# ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${ARNOLD_WORKER_GPU}" --nnodes="${ARNOLD_WORKER_NUM}" --node_rank="${ARNOLD_ID}" --master_addr="${METIS_WORKER_0_HOST}" --master_port="${port_in_cmd}" \
 ACCELERATE_CPU_AFFINITY=1 torchrun --nproc_per_node="${ARNOLD_WORKER_GPU}" --nnodes="${ARNOLD_WORKER_NUM}" --node_rank="${ARNOLD_ID}" --master_addr="${METIS_WORKER_0_HOST}" --master_port="${port_in_cmd}" \
     llava/train/train_mem.py \
     --deepspeed scripts/zero3.json \
