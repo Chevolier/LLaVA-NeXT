@@ -39,3 +39,18 @@ After saving model checkpoint, add a vocab_size in the config.json
 ```
   "vocab_size": 152064
 ```
+
+# SGLang deployment
+## LLaVA-Video-Qwen2
+```bash
+pip install --upgrade pip
+pip install uv
+uv pip install "sglang[all]>=0.4.4.post1" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
+pip install transformers==4.48.3
+```
+
+## Qwen2.5-VL-7B
+```bash
+python local-deploy/sglang_server.py
+```
+
