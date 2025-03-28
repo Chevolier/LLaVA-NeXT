@@ -9,7 +9,7 @@ pip install -e ".[train]"
 
 # For SGLang
 pip install uv
-uv pip install "sglang[all]>=0.4.4.post1" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
+uv pip install "sglang[all]==0.4.4.post1" --find-links https://flashinfer.ai/whl/cu124/torch2.5/flashinfer-python
 pip install transformers==4.48.3
 
 pip install -U "huggingface_hub[cli]"
