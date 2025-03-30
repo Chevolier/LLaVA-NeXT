@@ -207,9 +207,17 @@ def create_highlight_clip(video_path, highlights, buffer_seconds, output_path):
         os.unlink(segments_path)  # Remove temporary file
         return False
 
-def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer_seconds, model_name):
+def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer_seconds, model_name, create_clip=True):
     """Extract highlights from a video based on keywords."""
     progress_updates = []
+    
+    # Parse keywords (split by comma instead of newlines)
+    keywords_list = [k.strip() for k in re.split(r'[,，]', highlight_keywords) if k.strip()]
+    
+    if not keywords_list:
+        return "No valid keywords provided.", None, progress_updates, None
+    
+    progress_updates.append(f"Looking for keywords: {', '.join(keywords_list)}")
     
     # Download video from S3
     progress_updates.append("Downloading video from S3...")
@@ -229,7 +237,6 @@ def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer
 
     # Process frames to find keywords
     progress_updates.append(f"Processing {len(frames_info)} frames to find keywords...")
-    keywords_list = [k for k in highlight_keywords.split("\n") if k.strip()]
     
     highlights = []
     with ThreadPoolExecutor(max_workers=4) as executor:
@@ -238,7 +245,7 @@ def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer
             for frame in frames_info
         }
         
-        for i, future in enumerate(future_to_frame):
+        for i, future in enumerate(future_to_frame.keys()):
             if i % 20 == 0:  # Update progress every 20 frames
                 progress_updates.append(f"Processed {i}/{len(frames_info)} frames...")
                 
@@ -251,38 +258,47 @@ def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer
         shutil.rmtree(temp_frames_dir)
         return "No highlights found matching the keywords.", None, progress_updates, None
     
-    # Create highlight video
-    progress_updates.append(f"Found {len(highlights)} frames with matching keywords.")
-    progress_updates.append("Creating highlight video...")
+    # Create highlight video if requested
+    s3_path = None
     
-    output_dir = tempfile.mkdtemp()
-    output_path = os.path.join(output_dir, "highlights.mp4")
-    
-    success = create_highlight_clip(local_video_path, highlights, buffer_seconds, output_path)
-    
-    if not success:
-        shutil.rmtree(temp_video_dir)
-        shutil.rmtree(temp_frames_dir)
-        shutil.rmtree(output_dir)
-        return "Failed to create highlight video.", None, progress_updates, None
-    
-    # Upload to S3
-    progress_updates.append("Uploading highlight video to S3...")
-    s3_path, download_url = upload_to_s3(output_path)
+    if create_clip:
+        progress_updates.append(f"Found {len(highlights)} frames with matching keywords.")
+        progress_updates.append("Creating highlight video...")
+        
+        output_dir = tempfile.mkdtemp()
+        output_path = os.path.join(output_dir, "highlights.mp4")
+        
+        success = create_highlight_clip(local_video_path, highlights, buffer_seconds, output_path)
+        
+        if not success:
+            progress_updates.append("Failed to create highlight video. Showing detected frames only.")
+        else:
+            # Upload to S3
+            progress_updates.append("Uploading highlight video to S3...")
+            s3_path, download_url = upload_to_s3(output_path)
+            progress_updates.append(f"Video uploaded to {s3_path}")
+            
+            # Clean up output directory
+            shutil.rmtree(output_dir)
+    else:
+        progress_updates.append(f"Found {len(highlights)} frames with matching keywords. Skipping clip creation.")
     
     # Prepare HTML for highlight frames with text
     html_parts = ["<style>",
-                 ".highlight-container { margin-bottom: 30px; border: 1px solid #ddd; padding: 15px; border-radius: 8px; background-color: #f9f9f9; }",
-                 ".highlight-image { width: 100%; max-height: 400px; object-fit: contain; margin-bottom: 15px; border-radius: 8px; }",
-                 ".highlight-info { background-color: white; padding: 15px; border-radius: 8px; border: 1px solid #eee; }",
-                 ".highlight-text { max-height: 200px; overflow-y: auto; background-color: #f5f5f5; padding: 10px; border-radius: 5px; margin-top: 10px; }",
-                 "</style>",
-                 "<div style='max-height: 800px; overflow-y: auto;'>",
-                 "<h2>Detected Highlights (First 5)</h2>"]
+             ".highlight-container { margin-bottom: 40px; border: 1px solid #ddd; padding: 20px; border-radius: 8px; background-color: #f9f9f9; }",
+             ".highlight-image-container { text-align: center; margin-bottom: 20px; }",
+             ".highlight-image { width: auto; max-width: 90%; max-height: 500px; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }",
+             ".highlight-info { background-color: white; padding: 20px; border-radius: 8px; border: 1px solid #eee; }",
+             ".highlight-text { max-height: 200px; overflow-y: auto; background-color: #f5f5f5; padding: 15px; border-radius: 5px; margin-top: 15px; }",
+             ".highlight-metadata { display: flex; justify-content: space-between; margin-bottom: 15px; }",
+             ".timestamp { font-size: 1.2em; font-weight: bold; color: #444; }",
+             ".keywords { color: #d32f2f; font-weight: bold; }",
+             "</style>",
+             "<div style='max-width: 1200px; margin: 0 auto;'>",
+             f"<h2>Detected Highlights ({min(5, len(highlights))} of {len(highlights)})</h2>"]
     
     # Create temp directory for hosting highlight frames
     highlight_img_dir = tempfile.mkdtemp()
-    temp_img_paths = []
     
     # Create base64 encodings of images to embed directly in HTML
     for i, highlight in enumerate(highlights[:5]):  # Limit to first 5
@@ -305,14 +321,18 @@ def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer
         minutes = int(timestamp // 60)
         seconds = int(timestamp % 60)
         time_str = f"{minutes:02d}:{seconds:02d}"
-        
+
         # Add this highlight to the HTML
         html_parts.append(f"""
         <div class="highlight-container">
-            <img src="{img_base64}" class="highlight-image" alt="Highlight at {time_str}">
+            <div class="highlight-image-container">
+                <img src="{img_base64}" class="highlight-image" alt="Highlight at {time_str}">
+            </div>
             <div class="highlight-info">
-                <h3>Timestamp: {time_str}</h3>
-                <p><strong>Keywords Matched:</strong> {', '.join(highlight['matched_keywords'])}</p>
+                <div class="highlight-metadata">
+                    <div class="timestamp">Timestamp: {time_str}</div>
+                    <div class="keywords">Keywords: {', '.join(highlight['matched_keywords'])}</div>
+                </div>
                 <div class="highlight-text">
                     <p><strong>Extracted Text:</strong><br>{highlight['texts']}</p>
                 </div>
@@ -326,12 +346,17 @@ def extract_highlights(s3_video_path, highlight_keywords, extraction_fps, buffer
     # Clean up temp files
     shutil.rmtree(temp_video_dir)
     shutil.rmtree(temp_frames_dir)
-    shutil.rmtree(output_dir)
     # Note: We don't delete highlight_img_dir as we may need it for other things
     
-    result_message = f"Highlight video created with {len(highlights)} matching frames and uploaded to S3."
+    result_message = f"Found {len(highlights)} frames with matching keywords."
+    if create_clip and s3_path:
+        result_message += " Highlight video created and uploaded to S3."
+    elif create_clip:
+        result_message += " Failed to create highlight video."
+    else:
+        result_message += " Clip creation skipped as requested."
     
-    return result_message, s3_path, highlights_html, highlight_img_dir
+    return result_message, s3_path, progress_updates, highlights_html
 
 def inference(prompt, image=None, video=None, max_frames=32, fps=1, max_new_tokens=1024, model_name="LLaVA-Video-7B-Qwen2"):
     """Inference function that calls the appropriate service API."""
@@ -448,59 +473,85 @@ with gr.Blocks() as demo:
         )
 
     with gr.Tab("Video Game Highlights Extraction"):
+        # Input section
+        gr.Markdown("### 1. Configure Highlight Extraction")
         with gr.Row():
-            with gr.Column():
+            with gr.Column(scale=1):
                 highlight_model = gr.Dropdown(
                     choices=["LLaVA-Video-7B-Qwen2", "Qwen2.5-VL-7B-Instruct"],
                     value="Qwen2.5-VL-7B-Instruct",
                     label="Select Model for Text Extraction"
                 )
+                extraction_fps = gr.Slider(
+                    label="Frame Extraction FPS", 
+                    minimum=0.5, maximum=10, value=2, step=0.5
+                )
+                buffer_seconds = gr.Slider(
+                    label="Highlight Buffer (seconds before/after)", 
+                    minimum=1, maximum=30, value=5, step=1
+                )
+                create_clip = gr.Checkbox(
+                    label="Create Highlight Clip", 
+                    value=True,
+                    info="Uncheck to only detect highlights without creating a video"
+                )
+            
+            with gr.Column(scale=2):
                 s3_video_path = gr.Textbox(
                     label="S3 Video Path (s3://bucket-name/path/to/video.mp4)",
                     placeholder="s3://your-bucket/video/game_replay.mp4"
                 )
                 highlight_keywords = gr.Textbox(
-                    label="Highlight Keywords (one per line)",
-                    placeholder="Triple Kill\nQuadra Kill\nPenta Kill\nAce\nFirst Blood",
-                    lines=5
+                    label="Highlight Keywords (comma separated)",
+                    placeholder="Triple Kill, Quadra Kill, Penta Kill, Ace, First Blood",
+                    lines=3,
+                    info="Enter keywords separated by commas"
                 )
-                extraction_fps = gr.Slider(label="Frame Extraction FPS", minimum=0.5, maximum=10, value=2, step=0.5)
-                buffer_seconds = gr.Slider(label="Highlight Buffer (seconds before/after)", minimum=1, maximum=30, value=5, step=1)
-                
-                highlight_btn = gr.Button("Extract Highlights")
-            
-            with gr.Column():
-                highlight_result = gr.Textbox(label="Result", lines=2)
-                s3_output_path = gr.Textbox(label="Highlight Video S3 Path", lines=1)
-                highlight_progress = gr.JSON(label="Processing Log")
-                highlight_content = gr.HTML(label="Highlights")
+                highlight_btn = gr.Button("Extract Highlights", size="lg", variant="primary")
+        
+        # Results summary section
+        gr.Markdown("### 2. Results Summary")
+        with gr.Row():
+            highlight_result = gr.Textbox(label="Status", lines=2)
+            s3_output_path = gr.Textbox(label="Highlight Video S3 Path", lines=1)
+        
+        # Progress logs
+        gr.Markdown("### 3. Processing Logs")
+        highlight_progress = gr.JSON(show_label=False)
+        
+        # Full-width highlight content
+        gr.Markdown("### 4. Detected Highlights")
+        highlight_content = gr.HTML()
         
         # Connect the highlight extraction button
-        def cleanup_temp_dir(result, s3_path, content, progress, temp_dir):
+        def cleanup_temp_dir(result, s3_path, progress, content, temp_dir):
             if temp_dir and os.path.exists(temp_dir):
                 shutil.rmtree(temp_dir)
-            return result, s3_path, content, progress
+            return result, s3_path, progress, content
         
         highlight_btn.click(
             fn=extract_highlights,
-            inputs=[s3_video_path, highlight_keywords, extraction_fps, buffer_seconds, highlight_model],
-            outputs=[highlight_result, s3_output_path, highlight_content, gr.State(None)]
+            inputs=[s3_video_path, highlight_keywords, extraction_fps, buffer_seconds, highlight_model, create_clip],
+            outputs=[highlight_result, s3_output_path, highlight_progress, highlight_content]
         ).then(
             fn=cleanup_temp_dir,
-            inputs=[highlight_result, s3_output_path, highlight_content, highlight_progress, gr.State(value="_")],
-            outputs=[highlight_result, s3_output_path, highlight_content, highlight_progress]
+            inputs=[highlight_result, s3_output_path, highlight_progress, highlight_content, gr.State(value="_")],
+            outputs=[highlight_result, s3_output_path, highlight_progress, highlight_content]
         )
         
         # Example for highlight extraction
         gr.Examples(
             [
                 ["s3://sagemaker-us-west-2-452145973879/datasets/绿树电竞/英雄联盟/LeagueofLegends2025.03.21-10.51.35.03.mp4", 
-                "击杀\n双杀\n三杀\nAce\nFirst Blood",
-                0.5, 2, "Qwen2.5-VL-7B-Instruct"],
+                "击杀,双杀,三杀,Ace,First Blood", 
+                0.5, 2, "Qwen2.5-VL-7B-Instruct", True],
+                ["s3://sagemaker-us-west-2-452145973879/datasets/绿树电竞/英雄联盟/LeagueofLegends2025.03.21-10.51.35.03.mp4", 
+                "击杀,双杀,三杀,Ace,First Blood",
+                0.5, 2, "Qwen2.5-VL-7B-Instruct", False],
             ],
             fn=extract_highlights,
-            inputs=[s3_video_path, highlight_keywords, extraction_fps, buffer_seconds, highlight_model],
-            outputs=[highlight_result, s3_output_path, highlight_content, gr.State(None)]
+            inputs=[s3_video_path, highlight_keywords, extraction_fps, buffer_seconds, highlight_model, create_clip],
+            outputs=[highlight_result, s3_output_path, highlight_progress, highlight_content]
         )
 
 # Launch the app
